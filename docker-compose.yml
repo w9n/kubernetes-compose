@@ -1,0 +1,40 @@
+version: '3'
+services:
+  master:
+    build: ./
+    image: wiin/kind
+    privileged: true
+    cap_add:
+      - ALL
+    command: kubeadm init --token w9nw9n.w9nw9nw9nw9nw9nw --ignore-preflight-errors=ALL
+    volumes:
+      - kubelet-cache:/docker-state
+    networks:
+      k8s:
+        ipv4_address: 172.16.99.99
+
+  node:
+    image: wiin/kind
+    privileged: true
+    cap_add:
+      - ALL
+    command: kubeadm join 172.16.99.99:6443 --token w9nw9n.w9nw9nw9nw9nw9nw --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=ALL
+    volumes:
+      - kubelet-cache:/docker-state
+    networks:
+      - k8s
+
+volumes:
+  kubelet-cache:
+    driver_opts:
+      type: none
+      device: $PWD/state
+      o: bind
+
+networks:
+  k8s:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.99.0/24
