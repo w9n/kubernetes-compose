@@ -1,8 +1,4 @@
-FROM alpine:edge AS build
-
-ENV kubernetes_version v1.10.0
-ENV cni_version        v0.7.1
-ENV critools_version   v1.0.0-alpha.0
+From alpine:edge AS build-base
 
 RUN apk add -U --no-cache \
   bash \
@@ -18,24 +14,37 @@ RUN apk add -U --no-cache \
   rsync \
   && true
 
-ENV GOPATH=/go PATH=$PATH:/go/bin
+COPY --from=golang:alpine /usr/local/go /usr/local/go
+
+ENV GOPATH=/go PATH=$PATH:/go/bin:/usr/local/go/bin
+
+FROM build-base AS kubernetes
 
 ### Kubernetes (incl Kubelet)
 
+ENV kubernetes_version v1.11.0
+ENV cni_version        v0.7.1
+ENV critools_version   v1.11.0
+
 ENV KUBERNETES_URL https://github.com/kubernetes/kubernetes.git
 #ENV KUBERNETES_BRANCH pull/NNN/head
-ENV KUBERNETES_COMMIT ${kubernetes_version}
-RUN mkdir -p $GOPATH/src/github.com/kubernetes && \
-    cd $GOPATH/src/github.com/kubernetes && \
-    git clone $KUBERNETES_URL kubernetes
+ENV KUBERNETES_BRANCH ${kubernetes_version}
+#ENV KUBERNETES_COMMIT
 WORKDIR $GOPATH/src/github.com/kubernetes/kubernetes
-RUN set -e; \
-    if [ -n "$KUBERNETES_BRANCH" ] ; then \
-        git fetch origin "$KUBERNETES_BRANCH"; \
-    fi; \
-    git checkout -q $KUBERNETES_COMMIT
+
+RUN git clone $KUBERNETES_URL ./ --branch $KUBERNETES_BRANCH --depth 1
+
+RUN git checkout $KUBERNETES_BRANCH
 
 RUN make WHAT="cmd/kubelet cmd/kubectl cmd/kubeadm"
+
+RUN mkdir -p /out/usr/bin
+
+RUN cp $GOPATH/src/github.com/kubernetes/kubernetes/_output/bin/kubelet /out/usr/bin/kubelet
+RUN cp $GOPATH/src/github.com/kubernetes/kubernetes/_output/bin/kubeadm /out/usr/bin/kubeadm
+RUN cp $GOPATH/src/github.com/kubernetes/kubernetes/_output/bin/kubectl /out/usr/bin/kubectl
+
+FROM build-base AS cni
 
 ### CNI plugins
 
@@ -53,6 +62,11 @@ RUN set -e;  \
     git checkout -q $CNI_COMMIT
 RUN ./build.sh
 
+RUN mkdir -p /out/root
+RUN tar -czf /out/root/cni.tgz -C $GOPATH/github.com/containernetworking/plugins/bin .
+
+FROM build-base AS critools
+
 ### critools
 
 ENV CRITOOLS_URL https://github.com/kubernetes-incubator/cri-tools
@@ -68,6 +82,13 @@ RUN set -e;  \
     fi; \
     git checkout -q $CRITOOLS_COMMIT
 RUN make binaries
+
+RUN mkdir -p /out/usr/bin
+RUN cp $GOPATH/bin/crictl /out/usr/bin/crictl
+RUN cp $GOPATH/bin/critest /out/usr/bin/critest
+
+
+FROM alpine:edge AS build
 
 ## Construct final image
 
@@ -94,21 +115,17 @@ RUN apk add --no-cache --initdb -p /out \
     nfs-utils \
     && true
 
-RUN cp $GOPATH/src/github.com/kubernetes/kubernetes/_output/bin/kubelet /out/usr/bin/kubelet
-RUN cp $GOPATH/src/github.com/kubernetes/kubernetes/_output/bin/kubeadm /out/usr/bin/kubeadm
-RUN cp $GOPATH/src/github.com/kubernetes/kubernetes/_output/bin/kubectl /out/usr/bin/kubectl
 
-RUN tar -czf /out/root/cni.tgz -C $GOPATH/github.com/containernetworking/plugins/bin .
-
-RUN cp $GOPATH/bin/crictl /out/usr/bin/crictl
-RUN cp $GOPATH/bin/critest /out/usr/bin/critest
 
 # Remove apk residuals. We have a read-only rootfs, so apk is of no use.
 RUN rm -rf /out/etc/apk /out/lib/apk /out/var/cache
 
 FROM scratch
 
+COPY --from=kubernetes /out /
 COPY --from=build /out /
+COPY --from=cni /out /
+COPY --from=critools /out /
 COPY entrypoint.sh /usr/bin/entrypoint.sh
 COPY kubelet.sh /usr/bin/kubelet.sh
 COPY calico.yml /cni/
