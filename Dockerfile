@@ -22,9 +22,9 @@ FROM build-base AS kubernetes
 
 ### Kubernetes (incl Kubelet)
 
-ENV kubernetes_version v1.11.0
+ENV kubernetes_version v1.11.2
 ENV cni_version        v0.7.1
-ENV critools_version   v1.11.0
+ENV critools_version   v1.11.1
 
 ENV KUBERNETES_URL https://github.com/kubernetes/kubernetes.git
 #ENV KUBERNETES_BRANCH pull/NNN/head
