@@ -9,7 +9,11 @@ dockerd --data-root=/docker-state/$(cat /etc/hostname) 2&> /docker.log &
 if [ ! -f /.init ]; then
     touch /.init
     {
-    eval $@ && \
+    if [ -f /var/lib/kind/kubeadm ]; then
+        eval $(cat /var/lib/kind/kubeadm)
+    else
+        eval $@
+    fi
         kubectl apply -f /cni/calico.yml
     }&
 fi
