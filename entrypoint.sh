@@ -16,7 +16,7 @@ if [ ! -f /.init ]; then
     else
         eval $@
     fi
-        kubectl apply -f /cni/calico.yml
+        kubectl apply -f /cni/cni.yml
     }&
 fi
 

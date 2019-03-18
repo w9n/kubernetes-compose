@@ -130,7 +130,7 @@ COPY --from=cni /out /
 COPY --from=critools /out /
 COPY entrypoint.sh /usr/bin/entrypoint.sh
 COPY kubelet.sh /usr/bin/kubelet.sh
-COPY calico.yml /cni/
+COPY cni.yml /cni/
 
 ENTRYPOINT ["entrypoint.sh"]
 ENV KUBECONFIG "/etc/kubernetes/admin.conf"
