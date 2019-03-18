@@ -22,9 +22,9 @@ FROM build-base AS kubernetes
 
 ### Kubernetes (incl Kubelet)
 
-ENV kubernetes_version v1.11.2
-ENV cni_version        v0.7.1
-ENV critools_version   v1.11.1
+ENV kubernetes_version v1.13.4
+ENV cni_version        v0.7.5
+ENV critools_version   v1.13.0
 
 ENV KUBERNETES_URL https://github.com/kubernetes/kubernetes.git
 #ENV KUBERNETES_BRANCH pull/NNN/head
@@ -60,10 +60,12 @@ RUN set -e;  \
         git fetch origin "CNI_BRANCH"; \
     fi; \
     git checkout -q $CNI_COMMIT
-RUN ./build.sh
+RUN ./build_linux.sh
 
 RUN mkdir -p /out/root
 RUN tar -czf /out/root/cni.tgz -C $GOPATH/github.com/containernetworking/plugins/bin .
+RUN mkdir -p /out/opt/cni/bin
+RUN cp -r $GOPATH/github.com/containernetworking/plugins/bin /out/opt/cni
 
 FROM build-base AS critools
 

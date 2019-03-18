@@ -4,11 +4,13 @@ services:
     build: ./
     image: wiin/kind
     privileged: true
+    cgroup_parent: master
     cap_add:
       - ALL
-    command: kubeadm init --token w9nw9n.w9nw9nw9nw9nw9nw --ignore-preflight-errors=ALL
+    command: kubeadm init --ignore-preflight-errors=ALL --config /kubeadm/kubeadm.config
     volumes:
       - kubelet-cache:/docker-state
+      - ./master.cfg:/kubeadm/kubeadm.config
     networks:
       k8s:
         ipv4_address: 172.16.99.99
@@ -16,11 +18,13 @@ services:
   node:
     image: wiin/kind
     privileged: true
+    cgroup_parent: nodes
     cap_add:
       - ALL
-    command: kubeadm join 172.16.99.99:6443 --token w9nw9n.w9nw9nw9nw9nw9nw --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=ALL
+    command: kubeadm join 172.16.99.99:6443 --token w9nw9n.w9nw9nw9nw9nw9nw --ignore-preflight-errors=ALL  --config /kubeadm/node.cfg --discovery-token-unsafe-skip-ca-verification=true
     volumes:
       - kubelet-cache:/docker-state
+      - ./node.cfg:/kubeadm/node.cfg
     networks:
       - k8s
 
