@@ -11,6 +11,7 @@ services:
     volumes:
       - kubelet-cache:/docker-state
       - ./master.cfg:/kubeadm/kubeadm.config
+      - ./cni.yml:/cni/cni.yml
     networks:
       k8s:
         ipv4_address: 172.16.99.99
